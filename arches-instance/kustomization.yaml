@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - charts-arches.yaml
+  - release.yaml
+  - psp.yaml
+  - redis-deployment.yaml
+  - redis-service.yaml
+  - geoserver-deployment.yaml
+  - geoserver-service.yaml
+  - geoserver-bootstrap-job.yaml
+configurations:
+  - kustomizeconfig.yaml

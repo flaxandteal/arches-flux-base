@@ -1,0 +1,93 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-bootstrap-geoserver
+  namespace: ${NAMESPACE}
+  annotations:
+    bootstrap-revision: "2"
+spec:
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 10
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-postgres
+          image: postgis/postgis:16-3.4
+          command:
+            - sh
+            - -c
+            - 'until pg_isready -h "$PGHOST" -p "$PGPORT" -q; do echo "waiting for postgres..."; sleep 2; done'
+          env:
+            - name: PGHOST
+              valueFrom:
+                secretKeyRef:
+                  name: geoserver-db
+                  key: POSTGRES_HOST
+            - name: PGPORT
+              valueFrom:
+                secretKeyRef:
+                  name: geoserver-db
+                  key: POSTGRES_PORT
+      containers:
+        - name: psql
+          image: postgis/postgis:16-3.4
+          env:
+            - name: PGUSER
+              value: postgres
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ${PG_SUPERUSER_SECRET}
+                  key: password
+            - name: PGDATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: geoserver-db
+                  key: POSTGRES_DB
+            - name: PGHOST
+              valueFrom:
+                secretKeyRef:
+                  name: geoserver-db
+                  key: POSTGRES_HOST
+            - name: PGPORT
+              valueFrom:
+                secretKeyRef:
+                  name: geoserver-db
+                  key: POSTGRES_PORT
+            - name: GS_USER
+              valueFrom:
+                secretKeyRef:
+                  name: geoserver-db
+                  key: POSTGRES_USERNAME
+            - name: GS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: geoserver-db
+                  key: POSTGRES_PASSWORD
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -euo pipefail
+              psql -v ON_ERROR_STOP=1 \
+                   -v gs_user="$GS_USER" \
+                   -v gs_pw="$GS_PASSWORD" \
+                   -v db_name="$PGDATABASE" <<'SQL'
+              SELECT format('CREATE ROLE %I LOGIN', :'gs_user')
+              WHERE NOT EXISTS (
+                SELECT 1 FROM pg_roles WHERE rolname = :'gs_user'
+              )
+              \gexec
+
+              ALTER ROLE :"gs_user" WITH LOGIN PASSWORD :'gs_pw';
+
+              GRANT CONNECT ON DATABASE :"db_name" TO :"gs_user";
+              GRANT USAGE ON SCHEMA public TO :"gs_user";
+              GRANT SELECT ON ALL TABLES IN SCHEMA public TO :"gs_user";
+
+              ALTER DEFAULT PRIVILEGES IN SCHEMA public
+                GRANT SELECT ON TABLES TO :"gs_user";
+              SQL

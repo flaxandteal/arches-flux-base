@@ -1,0 +1,19 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ${RELEASE_NAME}-archesproject:psp:trusted
+  namespace: ${NAMESPACE}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: psp:trusted
+subjects:
+- kind: ServiceAccount
+  name: ${RELEASE_NAME}-archesproject
+  namespace: ${NAMESPACE}
+- kind: ServiceAccount
+  name: default
+  namespace: ${NAMESPACE}
+- kind: ServiceAccount
+  name: ${RELEASE_NAME}-rabbitmq
+  namespace: ${NAMESPACE}

@@ -1,0 +1,124 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: geoserver
+  namespace: ${NAMESPACE}
+  labels:
+    app: geoserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: geoserver
+  template:
+    metadata:
+      labels:
+        app: geoserver
+    spec:
+      volumes:
+        - name: geoserver-data
+          emptyDir: {}
+        - name: geoserver-config-overlay
+          configMap:
+            name: geoserver-gs-datadir
+      initContainers:
+        - name: seed-data-dir
+          image: docker.osgeo.org/geoserver:${GEOSERVER_VERSION}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              cp -a /usr/local/tomcat/webapps/geoserver/data/. /opt/geoserver_data/
+              mkdir -p /opt/geoserver_data/workspaces/${GEOSERVER_WORKSPACE}/${GEOSERVER_WORKSPACE}-pg/monuments
+              cp /config-overlay/workspace.xml        /opt/geoserver_data/workspaces/${GEOSERVER_WORKSPACE}/workspace.xml
+              cp /config-overlay/namespace.xml        /opt/geoserver_data/workspaces/${GEOSERVER_WORKSPACE}/namespace.xml
+              cp /config-overlay/datastore.xml        /opt/geoserver_data/workspaces/${GEOSERVER_WORKSPACE}/${GEOSERVER_WORKSPACE}-pg/datastore.xml
+              cp /config-overlay/featuretype.xml      /opt/geoserver_data/workspaces/${GEOSERVER_WORKSPACE}/${GEOSERVER_WORKSPACE}-pg/monuments/featuretype.xml
+              cp /config-overlay/layer.xml            /opt/geoserver_data/workspaces/${GEOSERVER_WORKSPACE}/${GEOSERVER_WORKSPACE}-pg/monuments/layer.xml
+              cp /config-overlay/layers.properties    /opt/geoserver_data/security/layers.properties
+              cp /config-overlay/role_config.xml      /opt/geoserver_data/security/role/default/config.xml
+              cp /config-overlay/roles.xml            /opt/geoserver_data/security/role/default/roles.xml
+              cp /config-overlay/usergroup_config.xml /opt/geoserver_data/security/usergroup/default/config.xml
+              cp /config-overlay/users.xml            /opt/geoserver_data/security/usergroup/default/users.xml
+          volumeMounts:
+            - name: geoserver-data
+              mountPath: /opt/geoserver_data
+            - name: geoserver-config-overlay
+              mountPath: /config-overlay
+      containers:
+        - name: geoserver
+          image: docker.osgeo.org/geoserver:${GEOSERVER_VERSION}
+          volumeMounts:
+            - name: geoserver-data
+              mountPath: /opt/geoserver_data
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          env:
+            - name: PROXY_BASE_URL
+              value: ${GEOSERVER_PROXY_URL}
+            - name: SKIP_DEMO_DATA
+              value: "true"
+            - name: CORS_ENABLED
+              value: "true"
+            - name: CORS_ALLOWED_ORIGINS
+              value: "*"
+            - name: GEOSERVER_CSRF_DISABLED
+              value: "true"
+            - name: POSTGRES_JNDI_ENABLED
+              value: "true"
+            - name: POSTGRES_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: geoserver-db
+                  key: POSTGRES_HOST
+            - name: POSTGRES_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: geoserver-db
+                  key: POSTGRES_PORT
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: geoserver-db
+                  key: POSTGRES_DB
+            - name: POSTGRES_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: geoserver-db
+                  key: POSTGRES_USERNAME
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: geoserver-db
+                  key: POSTGRES_PASSWORD
+          startupProbe:
+            httpGet:
+              path: /geoserver/web/wicket/resource/org.geoserver.web.GeoServerBasePage/img/logo.png
+              port: 8080
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 24
+          livenessProbe:
+            httpGet:
+              path: /geoserver/web/wicket/resource/org.geoserver.web.GeoServerBasePage/img/logo.png
+              port: 8080
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /geoserver/web/wicket/resource/org.geoserver.web.GeoServerBasePage/img/logo.png
+              port: 8080
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"

@@ -1,0 +1,64 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ${NAMESPACE}
+  namespace: ${NAMESPACE}
+spec:
+  driftDetection:
+    mode: enabled
+  targetNamespace: ${NAMESPACE}
+  releaseName: ${RELEASE_NAME}
+  chart:
+    spec:
+      chart: archesproject
+      sourceRef:
+        kind: HelmRepository
+        name: helm-arches
+      version: ${CHART_VERSION}
+  interval: 5m0s
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+  valuesFrom:
+    - kind: Secret
+      name: values-yaml
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: ${NAMESPACE}-images
+      valuesKey: tag
+      targetPath: image.tag
+    - kind: ConfigMap
+      name: ${NAMESPACE}-images
+      valuesKey: repository
+      targetPath: image.repository
+    - kind: ConfigMap
+      name: ${NAMESPACE}-static-images
+      valuesKey: tag
+      targetPath: imageStatic.tag
+    - kind: ConfigMap
+      name: ${NAMESPACE}-static-images
+      valuesKey: repository
+      targetPath: imageStatic.repository
+    - kind: ConfigMap
+      name: ${NAMESPACE}-api-images
+      valuesKey: tag
+      targetPath: api.image.tag
+    - kind: ConfigMap
+      name: ${NAMESPACE}-api-images
+      valuesKey: repository
+      targetPath: api.image.repository
+    - kind: ConfigMap
+      name: ${NAMESPACE}-images
+      valuesKey: tag
+      targetPath: worker.image.tag
+    - kind: ConfigMap
+      name: ${NAMESPACE}-images
+      valuesKey: repository
+      targetPath: worker.image.repository
+    - kind: ConfigMap
+      name: ${NAMESPACE}-redis
+      valuesKey: url
+      targetPath: env.REDIS_URL
