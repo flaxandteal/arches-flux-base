@@ -81,6 +81,9 @@ demo `workspaces`, `layergroups` and `gwc-layers`, then copies whatever the proj
 mounted at `/config-overlay` over the top. It knows no filenames: **the consuming
 project owns both the files and where they land.**
 
+The overlay is optional. A project with no geoserver config generates no configMap
+and gets a clean boot with an empty catalog, ready to be configured in the admin UI.
+
 ConfigMap keys cannot contain `/`, so the directory layout is expressed with
 `items[].path`, which each project supplies by patching the Deployment:
 

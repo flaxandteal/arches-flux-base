@@ -21,6 +21,9 @@ spec:
         - name: geoserver-config-overlay
           configMap:
             name: geoserver-datadir
+            # A project with no geoserver config yet is a valid state.
+            # optional=true allows for empty overlay directory.
+            optional: true
       initContainers:
         - name: seed-data-dir
           image: docker.osgeo.org/geoserver:${GEOSERVER_VERSION}
@@ -51,7 +54,19 @@ spec:
               #    real files, and the unquoted glob (rather than `/config-overlay/.`)
               #    skips the dot-prefixed `..data` bookkeeping directories, which
               #    would otherwise land in the geoserver data dir.
-              cp -rL /config-overlay/* /opt/geoserver_data/
+              #
+              #    An empty overlay is not an error: geoserver starts happily with
+              #    no workspaces, which is what a project that has not written its
+              #    config yet should get. `set --` + `[ -e "$1" ]` is the portable
+              #    way to ask whether the glob matched, since an unmatched glob is
+              #    passed through literally by /bin/sh. Testing `ls -A` instead
+              #    would misfire: it still reports kubelet's `..data` directory.
+              set -- /config-overlay/*
+              if [ -e "$1" ]; then
+                cp -rL "$@" /opt/geoserver_data/
+              else
+                echo "seed-data-dir: no overlay content mounted; starting with an empty catalog" >&2
+              fi
           volumeMounts:
             - name: geoserver-data
               mountPath: /opt/geoserver_data
