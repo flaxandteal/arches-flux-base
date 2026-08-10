@@ -20,7 +20,10 @@ spec:
           emptyDir: {}
         - name: geoserver-config-overlay
           configMap:
-            name: geoserver-gs-datadir
+            name: geoserver-datadir
+            # A project with no geoserver config yet is a valid state.
+            # optional=true allows for empty overlay directory.
+            optional: true
       initContainers:
         - name: seed-data-dir
           image: docker.osgeo.org/geoserver:${GEOSERVER_VERSION}
@@ -29,18 +32,41 @@ spec:
             - -c
             - |
               set -eu
+              # 1. Start from the data dir shipped in the image. Having a complete
+              #    data dir keeps geoserver off its "first run" initialisation path.
               cp -a /usr/local/tomcat/webapps/geoserver/data/. /opt/geoserver_data/
-              mkdir -p /opt/geoserver_data/workspaces/${GEOSERVER_WORKSPACE}/${GEOSERVER_WORKSPACE}-pg/monuments
-              cp /config-overlay/workspace.xml        /opt/geoserver_data/workspaces/${GEOSERVER_WORKSPACE}/workspace.xml
-              cp /config-overlay/namespace.xml        /opt/geoserver_data/workspaces/${GEOSERVER_WORKSPACE}/namespace.xml
-              cp /config-overlay/datastore.xml        /opt/geoserver_data/workspaces/${GEOSERVER_WORKSPACE}/${GEOSERVER_WORKSPACE}-pg/datastore.xml
-              cp /config-overlay/featuretype.xml      /opt/geoserver_data/workspaces/${GEOSERVER_WORKSPACE}/${GEOSERVER_WORKSPACE}-pg/monuments/featuretype.xml
-              cp /config-overlay/layer.xml            /opt/geoserver_data/workspaces/${GEOSERVER_WORKSPACE}/${GEOSERVER_WORKSPACE}-pg/monuments/layer.xml
-              cp /config-overlay/layers.properties    /opt/geoserver_data/security/layers.properties
-              cp /config-overlay/role_config.xml      /opt/geoserver_data/security/role/default/config.xml
-              cp /config-overlay/roles.xml            /opt/geoserver_data/security/role/default/roles.xml
-              cp /config-overlay/usergroup_config.xml /opt/geoserver_data/security/usergroup/default/config.xml
-              cp /config-overlay/users.xml            /opt/geoserver_data/security/usergroup/default/users.xml
+
+              # 2. Drop the demo content, so the overlay is the only source of
+              #    workspaces, layers and caches.
+              rm -rf /opt/geoserver_data/workspaces \
+                     /opt/geoserver_data/layergroups \
+                     /opt/geoserver_data/gwc-layers
+
+              # 3. Overlay the consuming project's config. This step is deliberately
+              #    generic: it copies whatever the project mounted, wherever the
+              #    project said it goes, and knows no filenames of its own. The
+              #    directory layout comes from `items[].path` on the configMap
+              #    volume, which each project supplies by patching this Deployment.
+              #
+              #    Note the flags. A configMap mount is not a plain directory:
+              #    kubelet writes the real files under `..data/` and leaves symlinks
+              #    at the mount root. So `-L` dereferences those symlinks to copy
+              #    real files, and the unquoted glob (rather than `/config-overlay/.`)
+              #    skips the dot-prefixed `..data` bookkeeping directories, which
+              #    would otherwise land in the geoserver data dir.
+              #
+              #    An empty overlay is not an error: geoserver starts happily with
+              #    no workspaces, which is what a project that has not written its
+              #    config yet should get. `set --` + `[ -e "$1" ]` is the portable
+              #    way to ask whether the glob matched, since an unmatched glob is
+              #    passed through literally by /bin/sh. Testing `ls -A` instead
+              #    would misfire: it still reports kubelet's `..data` directory.
+              set -- /config-overlay/*
+              if [ -e "$1" ]; then
+                cp -rL "$@" /opt/geoserver_data/
+              else
+                echo "seed-data-dir: no overlay content mounted; starting with an empty catalog" >&2
+              fi
           volumeMounts:
             - name: geoserver-data
               mountPath: /opt/geoserver_data
