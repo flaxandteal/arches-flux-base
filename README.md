@@ -57,18 +57,64 @@ secretGenerator:
     files:
       - values.yaml=values.yaml
 configMapGenerator:
-  - name: geoserver-gs-datadir
+  - name: geoserver-datadir
     namespace: fat-prj-prd-arches-flax
     files:
-      - workspace.xml=geoserver/geoserver-gs-workspace.xml
+      - workspace.xml=geoserver/workspaces/my-project/workspace.xml
       # ... project-specific geoserver XML
 patches:
   - path: patches/release.yaml
     target:
       kind: HelmRelease
+  - path: patches/geoserver-overlay.yaml   # see below
+    target:
+      kind: Deployment
+      name: geoserver
 ```
 
 Supply variables via `postBuild.substitute` in the Flux Kustomization.
+
+## GeoServer config overlay
+
+`arches-instance` seeds a complete GeoServer data dir from the image, removes the
+demo `workspaces`, `layergroups` and `gwc-layers`, then copies whatever the project
+mounted at `/config-overlay` over the top. It knows no filenames: **the consuming
+project owns both the files and where they land.**
+
+ConfigMap keys cannot contain `/`, so the directory layout is expressed with
+`items[].path`, which each project supplies by patching the Deployment:
+
+```yaml
+# patches/geoserver-overlay.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: geoserver
+spec:
+  template:
+    spec:
+      volumes:
+        - name: geoserver-config-overlay
+          configMap:
+            name: geoserver-datadir
+            items:
+              - key: workspace.xml
+                path: workspaces/my-project/workspace.xml
+              - key: datastore.xml
+                path: workspaces/my-project/my-project-pg/datastore.xml
+              - key: users.xml
+                path: security/usergroup/default/users.xml
+              # ... one entry per file, `path` relative to the data dir root
+```
+
+Keeping the source files in the project repo under their real data-dir layout
+(`geoserver/workspaces/my-project/workspace.xml`) makes the `items` list mechanical
+to write, and lets the same tree be mounted straight into a local GeoServer
+container for testing:
+
+```
+docker run -v $(pwd)/geoserver:/opt/geoserver_data docker.osgeo.org/geoserver:2.28.0
+```
 
 ## Variables
 
@@ -80,7 +126,6 @@ Supply variables via `postBuild.substitute` in the Flux Kustomization.
 | `RELEASE_NAME`        | `fat-prj-prd`                             | Helm release name                         |
 | `CHART_VERSION`       | `0.0.25`                                  | archesproject chart version               |
 | `GEOSERVER_VERSION`   | `2.28.0`                                  | GeoServer image tag                       |
-| `GEOSERVER_WORKSPACE` | `my-project`                              | GeoServer workspace name                  |
 | `GEOSERVER_PROXY_URL` | `https://geoserver.example.com/geoserver` | GeoServer public base URL                 |
 | `PG_SUPERUSER_SECRET` | `arches-pg-superuser`                     | Secret with PostgreSQL superuser password |
 
