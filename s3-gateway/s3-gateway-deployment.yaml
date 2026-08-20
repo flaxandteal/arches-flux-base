@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: s3-gateway
+  namespace: ${NAMESPACE}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: s3-gateway
+  template:
+    metadata:
+      labels:
+        app: s3-gateway
+    spec:
+      containers:
+        - name: nginx-s3-gateway
+          image: ghcr.io/nginxinc/nginx-s3-gateway/nginx-oss-s3-gateway:latest
+          env:
+            - name: S3_BUCKET_NAME
+              value: "${S3_BUCKET_NAME}"
+            - name: S3_SERVER
+              value: "${S3_SERVER}"
+            - name: S3_SERVER_PORT
+              value: "${S3_SERVER_PORT}"
+            - name: S3_SERVER_PROTO
+              value: "${S3_SERVER_PROTO}"
+            - name: S3_REGION
+              value: "${S3_REGION}"
+            - name: S3_STYLE
+              value: "${S3_STYLE}"
+            - name: AWS_SIGS_VERSION
+              value: "4"
+            - name: DEBUG
+              value: "false"
+            - name: ALLOW_DIRECTORY_LIST
+              value: "false"
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: s3-gateway-credentials
+                  key: aws-access-key-id
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: s3-gateway-credentials
+                  key: aws-secret-access-key
+          ports:
+            - containerPort: 80
+              name: http
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 60
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 30

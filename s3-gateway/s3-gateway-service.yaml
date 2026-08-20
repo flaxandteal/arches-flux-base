@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: s3-gateway
+  namespace: ${NAMESPACE}
+spec:
+  selector:
+    app: s3-gateway
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+  type: ClusterIP
