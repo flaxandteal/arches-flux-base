@@ -3,5 +3,6 @@ kind: Kustomization
 resources:
   - httproute-redirect.yaml
   - httproute-static.yaml
+  - httproute-media.yaml
   - httproute-app.yaml
   - referencegrant.yaml
