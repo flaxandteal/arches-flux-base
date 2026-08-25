@@ -8,6 +8,8 @@ metadata:
 spec:
   ttlSecondsAfterFinished: 86400
   backoffLimit: 10
+  # Bounds the wait-for-arches_spatial_views loop below.
+  activeDeadlineSeconds: 1800
   template:
     metadata:
       annotations:
@@ -72,6 +74,15 @@ spec:
           args:
             - |
               set -euo pipefail
+
+              # arches_spatial_views is created by an Arches migration
+              until [ "$(psql -tAc \
+                    "SELECT 1 FROM pg_roles WHERE rolname = 'arches_spatial_views'")" \
+                    = "1" ]; do
+                echo "waiting for arches_spatial_views role..."
+                sleep 5
+              done
+
               psql -v ON_ERROR_STOP=1 \
                    -v gs_user="$GS_USER" \
                    -v gs_pw="$GS_PASSWORD" \
@@ -90,4 +101,7 @@ spec:
 
               ALTER DEFAULT PRIVILEGES IN SCHEMA public
                 GRANT SELECT ON TABLES TO :"gs_user";
+
+              -- The spatial views should grant themselves to the arches_spatial_views group role
+              GRANT arches_spatial_views TO :"gs_user";
               SQL

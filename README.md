@@ -130,6 +130,35 @@ container for testing:
 docker run -v $(pwd)/geoserver:/opt/geoserver_data docker.osgeo.org/geoserver:2.28.0
 ```
 
+## Spatial views
+
+The bootstrap job grants the GeoServer database role membership of
+`arches_spatial_views` — the group role Arches core creates on migrate. Project
+spatial views grant to that group role, not to the project's own GeoServer role:
+
+```sql
+GRANT SELECT ON public.my_view TO arches_spatial_views;
+```
+
+**Why the group role.** The SQL defining the views lives in the project's Arches repo,
+which cannot know the GeoServer role name — that comes from a per-deployment secret
+(`geoserver-db` / `POSTGRES_USERNAME`) and differs per environment. Granting to the fixed
+group role keeps that SQL deployment-agnostic, and matches Arches core, whose trigger
+grants the auto-generated `<slug>_<geom>` views to the same role. Each environment
+supplies membership once, in the bootstrap job.
+
+Two consequences:
+
+- Recreated views are new objects and inherit no grants, so reissue after every `CREATE`.
+- A view calling a `SECURITY DEFINER` helper needs `GRANT EXECUTE` on the function too.
+  Postgres checks tables referenced in a view against the view *owner*, but function
+  execute against the *invoking* role — so a `SELECT` grant alone yields a view that
+  resolves and then fails on first query. Granting both to the group role means one
+  membership covers them.
+
+The job waits for the role to appear, since the core migration creating it may run after
+the job first fires, and fails at `activeDeadlineSeconds` if it never does.
+
 ## Variables
 
 ### arches-instance
