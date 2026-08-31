@@ -159,18 +159,24 @@ Two consequences:
 The job waits for the role to appear, since the core migration creating it may run after
 the job first fires, and fails at `activeDeadlineSeconds` if it never does.
 
+The job connects as the `postgres` superuser, so the Bitnami postgresql subchart needs
+`auth.enablePostgresUser: true` (its default) — that is what writes the `postgres-password`
+key the job reads. Note this is *not* the `password` key in the same Secret, which holds the
+application user's password. A project running Postgres outside the subchart must supply a
+Secret with the `postgres-password` key name.
+
 ## Variables
 
 ### arches-instance
 
-| Variable              | Example                                   | Description                               |
-|-----------------------|-------------------------------------------|-------------------------------------------|
-| `NAMESPACE`           | `fat-prj-prd-arches-flax`                 | Kubernetes namespace                      |
-| `RELEASE_NAME`        | `fat-prj-prd`                             | Helm release name                         |
-| `CHART_VERSION`       | `0.0.25`                                  | archesproject chart version               |
-| `GEOSERVER_VERSION`   | `2.28.0`                                  | GeoServer image tag                       |
-| `GEOSERVER_PROXY_URL` | `https://geoserver.example.com/geoserver` | GeoServer public base URL                 |
-| `PG_SUPERUSER_SECRET` | `arches-pg-superuser`                     | Secret with PostgreSQL superuser password |
+| Variable              | Example                                   | Description                                                                    |
+|-----------------------|-------------------------------------------|--------------------------------------------------------------------------------|
+| `NAMESPACE`           | `fat-prj-prd-arches-flax`                 | Kubernetes namespace                                                           |
+| `RELEASE_NAME`        | `fat-prj-prd`                             | Helm release name                                                              |
+| `CHART_VERSION`       | `0.0.25`                                  | archesproject chart version                                                    |
+| `GEOSERVER_VERSION`   | `2.28.0`                                  | GeoServer image tag                                                            |
+| `GEOSERVER_PROXY_URL` | `https://geoserver.example.com/geoserver` | GeoServer public base URL                                                      |
+| `PG_SUPERUSER_SECRET` | `fat-prj-postgresql`                      | Secret holding the `postgres` superuser password under key `postgres-password` |
 
 ### s3-gateway
 

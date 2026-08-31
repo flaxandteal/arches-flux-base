@@ -44,7 +44,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: ${PG_SUPERUSER_SECRET}
-                  key: password
+                  key: postgres-password
             - name: PGDATABASE
               valueFrom:
                 secretKeyRef:
