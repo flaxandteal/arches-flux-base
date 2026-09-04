@@ -190,6 +190,18 @@ Secret with the `postgres-password` key name.
 | `S3_REGION`       | `us-east-1`                                  | S3 region                          |
 | `S3_STYLE`        | `path`                                       | `path` or `virtual` addressing     |
 
+### s3-gateway
+
+| Variable          | Example                                      | Description                        |
+|-------------------|----------------------------------------------|------------------------------------|
+| `NAMESPACE`       | `fat-prj-prd-arches-flax`                    | Kubernetes namespace               |
+| `S3_BUCKET_NAME`  | `my-project-media-store-stg`                 | S3 bucket name                     |
+| `S3_SERVER`       | `object-storage.nz-hlz-1.catalystcloud.io`   | S3 endpoint hostname (no scheme)   |
+| `S3_SERVER_PORT`  | `443`                                        | S3 endpoint port                   |
+| `S3_SERVER_PROTO` | `https`                                      | S3 endpoint scheme                 |
+| `S3_REGION`       | `us-east-1`                                  | S3 region                          |
+| `S3_STYLE`        | `path`                                       | `path` or `virtual` addressing     |
+
 ### ingress/gateway-api
 
 | Variable                | Example                        | Description                           |
