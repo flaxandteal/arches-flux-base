@@ -5,6 +5,11 @@
 # at the top of that file). They are expanded into folders in the tests image, then
 # run inside the geoserver image the script is deployed with.
 #
+# The geoserver image is used because that is where the script runs: in the
+# cluster it is an init container in that image. So it is tested with that image's
+# /bin/sh (dash) and its sed, grep and find, and a release that changed one of them
+# (say, a find without -printf) fails the CI matrix rather than a deployment.
+#
 #   tests/fill-overlay-secrets.sh                  # default geoserver version
 #   GEOSERVER_VERSION=2.28.2 tests/fill-overlay-secrets.sh
 #
