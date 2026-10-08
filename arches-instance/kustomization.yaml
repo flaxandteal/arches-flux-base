@@ -12,3 +12,11 @@ resources:
   - geoserver-bootstrap-job.yaml
 configurations:
   - kustomizeconfig.yaml
+configMapGenerator:
+  # Scripts run by geoserver init containers, kept as real files so they can be
+  # linted and tested (tests/). The hash suffix stays on: a script change rolls the
+  # geoserver Deployment.
+  - name: geoserver-scripts
+    namespace: ${NAMESPACE}
+    files:
+      - scripts/fill-overlay-secrets.sh

@@ -24,6 +24,15 @@ spec:
             # A project with no geoserver config yet is a valid state.
             # optional=true allows for empty overlay directory.
             optional: true
+        - name: geoserver-overlay-secrets
+          secret:
+            secretName: geoserver-overlay-secrets
+            # Only projects that put @@secret:KEY@@ placeholders in their overlay
+            # need this Secret; without it fill-overlay-secrets has nothing to do.
+            optional: true
+        - name: geoserver-scripts
+          configMap:
+            name: geoserver-scripts
       initContainers:
         - name: seed-data-dir
           image: docker.osgeo.org/geoserver:${GEOSERVER_VERSION}
@@ -72,6 +81,23 @@ spec:
               mountPath: /opt/geoserver_data
             - name: geoserver-config-overlay
               mountPath: /config-overlay
+        - name: fill-overlay-secrets
+          image: docker.osgeo.org/geoserver:${GEOSERVER_VERSION}
+          # The script lives in scripts/fill-overlay-secrets.sh, shipped by the
+          # geoserver-scripts configMap (see kustomization.yaml).
+          command: ["/bin/sh", "/scripts/fill-overlay-secrets.sh"]
+          volumeMounts:
+            - name: geoserver-data
+              mountPath: /opt/geoserver_data
+            - name: geoserver-config-overlay
+              mountPath: /config-overlay
+              readOnly: true
+            - name: geoserver-overlay-secrets
+              mountPath: /config-secrets
+              readOnly: true
+            - name: geoserver-scripts
+              mountPath: /scripts
+              readOnly: true
       containers:
         - name: geoserver
           image: docker.osgeo.org/geoserver:${GEOSERVER_VERSION}
