@@ -1,0 +1,38 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The version projects deploy today, and the latest major.
+        # A geoserver release that stops accepting digest1, or that
+        # breaks the init container scripts, fails here first.
+        geoserver: ["2.28.0", "3.0.1"]
+    name: geoserver ${{ matrix.geoserver }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run tests
+        run: tests/run.sh
+        env:
+          GEOSERVER_VERSION: ${{ matrix.geoserver }}
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: >-
+          docker run --rm -v "$PWD:/mnt:ro" koalaman/shellcheck:stable -s sh
+          /mnt/arches-instance/scripts/fill-overlay-secrets.sh
+          /mnt/tools/check-geoserver-config.sh
+          /mnt/tests/fill-overlay-secrets.sh
+          /mnt/tests/geoserver-digest.sh
+          /mnt/tests/check-geoserver-config.sh
+          /mnt/tests/run.sh
