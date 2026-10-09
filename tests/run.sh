@@ -7,3 +7,4 @@ set -eu
 cd "$(dirname "$0")"
 sh ./fill-overlay-secrets.sh
 sh ./geoserver-digest.sh
+sh ./check-geoserver-config.sh

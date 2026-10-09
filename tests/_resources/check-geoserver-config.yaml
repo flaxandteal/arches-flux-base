@@ -1,0 +1,49 @@
+# Test cases for tools/check-geoserver-config.sh, run by
+# tests/test_check_geoserver_config.py.
+#
+# Each case writes `files` under a folder named geoserver/, runs the check on it,
+# and expects:
+#   exit:     the exit code
+#   findings: the reported lines (file:line: prefix), in order. Omit when exit is 0.
+
+cases:
+  clean-config:
+    files:
+      security/usergroup/default/users.xml: |
+        <user enabled="true" name="admin" password="@@secret:admin@@"/>
+        <user enabled="true" name="old" password="${GEOSERVER_ADMIN_DIGEST}"/>
+      workspaces/ws/store/datastore.xml: |
+        <entry key="jndiReferenceName">java:comp/env/jdbc/postgres</entry>
+      # The prefixes as ordinary words, not values: no false positives.
+      workspaces/ws/style.xml: |
+        <format>text/plain</format>
+        <name>plain: a heading</name>
+        <comment>passwords look like crypt2:..., never commit them</comment>
+    expected:
+      exit: 0
+
+  each-prefix-in-each-position:
+    files:
+      security/usergroup/default/users.xml: |
+        <user enabled="true" name="a" password="crypt2:QUJDREVGR0g="/>
+        <user enabled="true" name="b" password="digest1:D9miJH/hVgfxZJscMafEtbtliG0R"/>
+      workspaces/ws/store/datastore.xml: |
+        <entry key="passwd">crypt1:SGVsbG8=</entry>
+      security/users.properties: |
+        admin=plain:hunter2,ROLE_ADMINISTRATOR
+    expected:
+      exit: 1
+      findings:
+        - "geoserver/security/users.properties:1: plain:"
+        - "geoserver/security/usergroup/default/users.xml:1: crypt2:"
+        - "geoserver/security/usergroup/default/users.xml:2: digest1:"
+        - "geoserver/workspaces/ws/store/datastore.xml:1: crypt1:"
+
+  other-file-types-ignored:
+    files:
+      notes.txt: |
+        password="crypt2:QUJDREVGR0g="
+      values.yaml: |
+        password: "digest1:abc"
+    expected:
+      exit: 0

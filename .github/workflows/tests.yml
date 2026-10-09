@@ -31,6 +31,8 @@ jobs:
         run: >-
           docker run --rm -v "$PWD:/mnt:ro" koalaman/shellcheck:stable -s sh
           /mnt/arches-instance/scripts/fill-overlay-secrets.sh
+          /mnt/tools/check-geoserver-config.sh
           /mnt/tests/fill-overlay-secrets.sh
           /mnt/tests/geoserver-digest.sh
+          /mnt/tests/check-geoserver-config.sh
           /mnt/tests/run.sh
